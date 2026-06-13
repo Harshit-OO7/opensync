@@ -54,10 +54,11 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - - name: Lint with ruff
-          run: |
-          ruff check --fix .
-          ruff format . 
-          ruff check .
+          run: ruff check --fix . && ruff format . && ruff check .
+
+          name: Format check with ruff
+          run: ruff format --check .
+          
       - name: Format check with ruff
         run: ruff format --check .
 
