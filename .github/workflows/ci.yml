@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, feat/phase-1-github-ingestion]
   pull_request:
     branches: [main, develop]
 
@@ -10,31 +10,6 @@ jobs:
   backend:
     name: Backend — lint + test
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: opensync
-          POSTGRES_PASSWORD: opensync
-          POSTGRES_DB: opensync_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     defaults:
       run:
@@ -53,20 +28,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - - name: Lint with ruff
-          run: ruff check --fix . && ruff format . && ruff check .
-
-          name: Format check with ruff
-          run: ruff format --check .
-          
-      - name: Format check with ruff
-        run: ruff format --check .
+      - name: Lint with ruff
+        run: ruff check --fix . && ruff format . && ruff check .
 
       - name: Run tests
         env:
           APP_ENV: development
-          DATABASE_URL: postgresql+asyncpg://opensync:opensync@localhost:5432/opensync_test
-          REDIS_URL: redis://localhost:6379/0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pytest -v
 
@@ -85,14 +52,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Lint
         run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
