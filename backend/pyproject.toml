@@ -1,6 +1,8 @@
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 select = [
     "E",
     "W",
@@ -15,27 +17,9 @@ ignore = [
     "B008",
 ]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["app"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = false
-ignore_missing_imports = true
-warn_return_any = true
-warn_unused_configs = true
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_functions = ["test_*"]
-addopts = "--cov=app --cov-report=term-missing --cov-report=html"
-
-[tool.coverage.run]
-source = ["app"]
-omit = ["*/tests/*", "*/migrations/*"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"  

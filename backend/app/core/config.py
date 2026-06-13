@@ -29,9 +29,7 @@ class Settings(BaseSettings):
         return []
 
     # ─── Database ────────────────────────────────────────
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://opensync:opensync@localhost:5432/opensync"
-    )
+    DATABASE_URL: str = "postgresql+asyncpg://opensync:opensync@localhost:5432/opensync"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
 
