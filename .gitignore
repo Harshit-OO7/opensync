@@ -1,0 +1,45 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Node.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# ML / Data
+*.pkl
+*.joblib
+*.pt
+models/
+data/
+
+# Logs
+*.log
+logs/
