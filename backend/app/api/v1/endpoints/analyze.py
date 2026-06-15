@@ -13,8 +13,6 @@ import structlog
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.services.github.client import GitHubClient
@@ -27,10 +25,7 @@ github_client = GitHubClient()
 extractor = FeatureExtractor()
 
 # ── Database session ──────────────────────────────────────────────────────────
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
-AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+from app.db.session import AsyncSessionLocal
 
 
 # ── Response schemas ──────────────────────────────────────────────────────────
