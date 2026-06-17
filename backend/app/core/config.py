@@ -53,8 +53,8 @@ class Settings(BaseSettings):
     EMBEDDING_BATCH_SIZE: int = 32
 
     # ─── LLM ─────────────────────────────────────────────
-    OPENAI_API_KEY: str = ""
-    LLM_MODEL: str = "gpt-4o-mini"
+    GROQ_API_KEY: str = ""
+    LLM_MODEL: str = "llama-3.1-8b-instant"
     LLM_MAX_TOKENS: int = 1000
 
     # ─── Frontend ────────────────────────────────────────
