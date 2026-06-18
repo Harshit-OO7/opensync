@@ -26,8 +26,10 @@ class Settings(BaseSettings):
     def CORS_ORIGINS(self) -> list[str]:
         if self.APP_ENV == "development":
             return ["http://localhost:3000", "http://127.0.0.1:3000"]
-        return []
-
+        return [
+        "https://opensync.vercel.app",
+        "https://opensync-git-main.vercel.app",
+    ]
     # ─── Database ────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://opensync:opensync@localhost:5432/opensync"
     DATABASE_POOL_SIZE: int = 10
