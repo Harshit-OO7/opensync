@@ -170,6 +170,15 @@ class Recommender:
                 domain=payload.get("domain", ""),
             ))
 
+         # Deduplicate by full_name
+            seen = set()
+            unique_recommendations = []
+            for r in recommendations:
+                if r.full_name not in seen:
+                    seen.add(r.full_name)
+                    unique_recommendations.append(r)
+            recommendations = unique_recommendations   
+
         # Sort by final score and take top_k
         recommendations.sort(key=lambda x: x.relevance_score, reverse=True)
         recommendations = recommendations[:top_k]

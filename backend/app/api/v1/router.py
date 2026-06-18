@@ -5,7 +5,7 @@ All v1 endpoints are registered here.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import analyze, gap, guide, health, recommendations
+from app.api.v1.endpoints import analyze, evaluation, gap, guide, health, recommendations
 
 api_router = APIRouter()
 
@@ -18,3 +18,8 @@ api_router.include_router(
     tags=["Recommendations"],
 )
 api_router.include_router(guide.router, prefix="/guide", tags=["Repo Guide"])
+api_router.include_router(
+    evaluation.router,
+    prefix="/evaluation",
+    tags=["Evaluation"],
+)
