@@ -1,0 +1,42 @@
+# ─── Web Framework ───────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# ─── Database ────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.13.3
+psycopg2-binary==2.9.9
+
+# ─── Cache ───────────────────────────────────────────────
+redis[hiredis]==5.1.1
+
+# ─── Vector Store ────────────────────────────────────────
+qdrant-client==1.12.1
+
+# ─── GitHub API ──────────────────────────────────────────
+PyGithub==2.4.0
+gql[httpx]==3.5.0
+aiohttp==3.11.10
+
+# ─── Configuration ───────────────────────────────────────
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# ─── HTTP ────────────────────────────────────────────────
+httpx==0.27.2
+
+# ─── Utilities ───────────────────────────────────────────
+tenacity==8.3.0
+structlog==24.4.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# ─── LLM ─────────────────────────────────────────────────
+groq==0.9.0
+
+# ─── Numpy (lightweight) ─────────────────────────────────
+numpy==2.1.3
+scikit-learn==1.5.2

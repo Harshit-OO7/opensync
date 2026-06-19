@@ -112,7 +112,13 @@ class RepoIndexer:
             host=settings.QDRANT_HOST,
             port=settings.QDRANT_PORT,
         )
-        self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        try:
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        except ImportError:
+            self._model = None
+            self._log.warning("sentence-transformers not available")
+        
         self._ensure_collection()
 
     def _ensure_collection(self):

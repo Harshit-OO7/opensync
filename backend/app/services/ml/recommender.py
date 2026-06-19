@@ -65,7 +65,12 @@ class Recommender:
             host=settings.QDRANT_HOST,
             port=settings.QDRANT_PORT,
         )
-        self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        try:
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        except ImportError:
+            self._model = None
+            self._log.warning("sentence-transformers not available, using fallback")
 
     def recommend(
         self,
@@ -94,6 +99,14 @@ class Recommender:
         self._log.debug("Query text", text=query_text)
 
         # Embed the query
+        if self._model is None:
+
+            return RecommendationResult(
+                github_username=gap_vector.github_username,
+                goal_domain=gap_vector.goal_domain,
+                goal_display_name=gap_vector.goal_display_name,
+                readiness_score=gap_vector.readiness_score,
+            )
         query_vector = self._model.encode(query_text).tolist()
 
         # Search Qdrant with domain filter
