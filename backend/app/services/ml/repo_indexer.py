@@ -12,7 +12,6 @@ import structlog
 from github import Github
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
-from sentence_transformers import SentenceTransformer
 from sqlalchemy import text
 
 from app.core.config import settings

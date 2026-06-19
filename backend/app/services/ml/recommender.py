@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 import structlog
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, Range, MatchValue
-from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 from app.services.ml.gap_modeler import GapVector
