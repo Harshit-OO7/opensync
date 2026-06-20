@@ -3,7 +3,7 @@
  * All backend calls go through here.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://opensync-api.onrender.com";
+const API_URL = "https://opensync-api.onrender.com";
 
 export interface SkillProfile {
   developer_id: string;
