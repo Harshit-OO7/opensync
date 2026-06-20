@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, Domain } from "@/lib/api";
 import { ArrowRight, Loader2 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
 export default function OnboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
