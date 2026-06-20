@@ -16,7 +16,7 @@ export default function HomePage() {
     setError("");
     try {
       const res = await fetch(
-        `http://localhost:8000/api/v1/analyze/${username.trim()}`
+        `https://opensync-api.onrender.com/api/v1/analyze/${username.trim()}`
       );
       if (!res.ok) {
         const data = await res.json();
