@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # ─── Qdrant ──────────────────────────────────────────
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
+    QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION_REPOS: str = "repositories"
 
     # ─── GitHub ──────────────────────────────────────────

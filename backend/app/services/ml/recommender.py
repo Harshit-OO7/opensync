@@ -60,10 +60,16 @@ class Recommender:
 
     def __init__(self):
         self._log = logger.bind(service="recommender")
-        self._qdrant = QdrantClient(
-            host=settings.QDRANT_HOST,
-            port=settings.QDRANT_PORT,
-        )
+        if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
+            self._qdrant = QdrantClient(
+                url=f"https://{settings.QDRANT_HOST}",
+                api_key=settings.QDRANT_API_KEY,
+            )
+        else:
+            self._qdrant = QdrantClient(
+                host=settings.QDRANT_HOST,
+                port=settings.QDRANT_PORT,
+            )
         try:
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
@@ -109,33 +115,58 @@ class Recommender:
         query_vector = self._model.encode(query_text).tolist()
 
         # Search Qdrant with domain filter
+        
         try:
-            results = self._qdrant.search(
-                collection_name=self.COLLECTION_NAME,
-                query_vector=query_vector,
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="domain",
-                            match=MatchValue(value=gap_vector.goal_domain),
-                        ),
-                        FieldCondition(
-                            key="newcomer_friendliness",
-                            range=Range(gte=0.1),
-                        ),
-                    ]
-                ),
-                limit=top_k * 2,  # fetch more, rerank below
-                with_payload=True,
+            if self._model is not None:
+                query_vector = self._model.encode(query_text).tolist()
+                results = self._qdrant.search(
+                    collection_name=self.COLLECTION_NAME,
+                    query_vector=query_vector,
+                    query_filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="domain",
+                                match=MatchValue(value=gap_vector.goal_domain),
+                            ),
+                            FieldCondition(
+                                key="newcomer_friendliness",
+                                range=Range(gte=0.1),
+                            ),
+                        ]
+                    ),
+                    limit=top_k * 2,
+                    with_payload=True,
             )
+            else:
+        # No embedding model — use scroll with filter
+                results_raw, _ = self._qdrant.scroll(
+                    collection_name=self.COLLECTION_NAME,
+                    scroll_filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="domain",
+                                match=MatchValue(value=gap_vector.goal_domain),
+                            ),
+                        ]
+                    ),
+                    limit=top_k * 2,
+                    with_payload=True,
+                )
+        # Convert scroll results to search result format
+            class FakeHit:
+                def __init__(self, point):
+                    self.score = point.payload.get("newcomer_friendliness", 0.5)
+                    self.payload = point.payload
+            results = [FakeHit(p) for p in results_raw]
+        
         except Exception as e:
             self._log.error("Qdrant search failed", error=str(e))
             return RecommendationResult(
-                github_username=gap_vector.github_username,
-                goal_domain=gap_vector.goal_domain,
-                goal_display_name=gap_vector.goal_display_name,
-                readiness_score=gap_vector.readiness_score,
-            )
+            github_username=gap_vector.github_username,
+            goal_domain=gap_vector.goal_domain,
+            goal_display_name=gap_vector.goal_display_name,
+            readiness_score=gap_vector.readiness_score,
+        )
 
         if not results:
             self._log.warning(

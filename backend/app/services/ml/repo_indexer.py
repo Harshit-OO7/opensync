@@ -107,10 +107,16 @@ class RepoIndexer:
     def __init__(self):
         self._log = logger.bind(service="repo_indexer")
         self._github = Github(settings.GITHUB_TOKEN)
-        self._qdrant = QdrantClient(
-            host=settings.QDRANT_HOST,
-            port=settings.QDRANT_PORT,
-        )
+        if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
+            self._qdrant = QdrantClient(
+                url=f"https://{settings.QDRANT_HOST}",
+                api_key=settings.QDRANT_API_KEY,
+            )
+        else:
+            self._qdrant = QdrantClient(
+                host=settings.QDRANT_HOST,
+                port=settings.QDRANT_PORT,
+            )
         try:
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
