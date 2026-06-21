@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
@@ -8,6 +8,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+  // Wake up the backend on page load
+  fetch("https://opensync-api.onrender.com/health").catch(() => {});
+}, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
