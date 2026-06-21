@@ -26,3 +26,7 @@
     @apply bg-background text-foreground;
   }
 }
+html, body {
+  background-color: hsl(0, 0%, 3.9%) !important;
+  color: hsl(0, 0%, 98%) !important;
+}
