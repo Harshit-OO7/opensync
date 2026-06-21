@@ -138,20 +138,18 @@ class Recommender:
                     with_payload=True,
             )
             else:
-        # No embedding model — use scroll with filter
+    # No embedding model — fetch all repos for this domain
                 results_raw, _ = self._qdrant.scroll(
                     collection_name=self.COLLECTION_NAME,
-                    scroll_filter=Filter(
-                        must=[
-                            FieldCondition(
-                                key="domain",
-                                match=MatchValue(value=gap_vector.goal_domain),
-                            ),
-                        ]
-                    ),
                     limit=top_k * 2,
                     with_payload=True,
+                    with_vectors=False,
                 )
+    # Filter by domain in Python
+                results_raw = [
+                    p for p in results_raw
+                    if p.payload.get("domain") == gap_vector.goal_domain
+                ]
         # Convert scroll results to search result format
             class FakeHit:
                 def __init__(self, point):
