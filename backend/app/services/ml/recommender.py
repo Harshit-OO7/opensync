@@ -47,20 +47,15 @@ class RecommendationResult:
 class Recommender:
     """
     Gap-aware repository recommender.
-
-    Uses semantic similarity between gap description and repo embeddings
-    to find repos that address the developer's specific skill gaps.
-
-    Usage:
-        recommender = Recommender()
-        result = recommender.recommend(gap_vector, top_k=5)
     """
 
     COLLECTION_NAME = "repositories"
 
     def __init__(self):
         self._log = logger.bind(service="recommender")
-        if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
+
+        # Connect to Qdrant
+        if settings.QDRANT_API_KEY:
             self._qdrant = QdrantClient(
                 url=f"https://{settings.QDRANT_HOST}",
                 api_key=settings.QDRANT_API_KEY,
@@ -70,11 +65,14 @@ class Recommender:
                 host=settings.QDRANT_HOST,
                 port=settings.QDRANT_PORT,
             )
+
+        # Try to load embedding model
+        self._model = None
         try:
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
-        except ImportError:
-            self._model = None
+            self._log.info("Embedding model loaded")
+        except Exception:
             self._log.warning("sentence-transformers not available, using fallback")
 
     def recommend(
@@ -84,13 +82,6 @@ class Recommender:
     ) -> RecommendationResult:
         """
         Recommend repositories based on a developer's gap vector.
-
-        Args:
-            gap_vector: The computed gap between current skills and goal
-            top_k: Number of recommendations to return
-
-        Returns:
-            RecommendationResult with ranked repositories
         """
         self._log.info(
             "Generating recommendations",
@@ -99,26 +90,12 @@ class Recommender:
             gaps=len(gap_vector.gaps),
         )
 
-        # Build query text from gap vector
-        query_text = self._gap_to_query_text(gap_vector)
-        self._log.debug("Query text", text=query_text)
-
-        # Embed the query
-        if self._model is None:
-
-            return RecommendationResult(
-                github_username=gap_vector.github_username,
-                goal_domain=gap_vector.goal_domain,
-                goal_display_name=gap_vector.goal_display_name,
-                readiness_score=gap_vector.readiness_score,
-            )
-        query_vector = self._model.encode(query_text).tolist()
-
-        # Search Qdrant with domain filter
-        
         try:
             if self._model is not None:
+                # Use semantic search with embeddings
+                query_text = self._gap_to_query_text(gap_vector)
                 query_vector = self._model.encode(query_text).tolist()
+
                 results = self._qdrant.search(
                     collection_name=self.COLLECTION_NAME,
                     query_vector=query_vector,
@@ -136,41 +113,43 @@ class Recommender:
                     ),
                     limit=top_k * 2,
                     with_payload=True,
-            )
+                )
+                self._log.info("Semantic search results", count=len(results))
+
             else:
-    # No embedding model — fetch all repos for this domain
-                results_raw, _ = self._qdrant.scroll(
+                # Fallback: scroll all and filter by domain in Python
+                self._log.info("Using scroll fallback", goal=gap_vector.goal_domain)
+
+                all_points, _ = self._qdrant.scroll(
                     collection_name=self.COLLECTION_NAME,
-                    limit=top_k * 2,
+                    limit=100,
                     with_payload=True,
                     with_vectors=False,
                 )
-    # Filter by domain in Python
-                results_raw = [
-                    p for p in results_raw
-                    if p.payload.get("domain") == gap_vector.goal_domain
+
+                self._log.info("Total points in Qdrant", count=len(all_points))
+
+                filtered = [
+                    p for p in all_points
+                    if p.payload is not None
+                    and p.payload.get("domain") == gap_vector.goal_domain
                 ]
-        # Convert scroll results to search result format
-            class FakeHit:
-                def __init__(self, point):
-                    self.score = point.payload.get("newcomer_friendliness", 0.5)
-                    self.payload = point.payload
-            results = [FakeHit(p) for p in results_raw]
-        
+
+                self._log.info(
+                    "Filtered by domain",
+                    domain=gap_vector.goal_domain,
+                    count=len(filtered),
+                )
+
+                class FakeHit:
+                    def __init__(self, point):
+                        self.score = point.payload.get("newcomer_friendliness", 0.5)
+                        self.payload = point.payload
+
+                results = [FakeHit(p) for p in filtered]
+
         except Exception as e:
             self._log.error("Qdrant search failed", error=str(e))
-            return RecommendationResult(
-            github_username=gap_vector.github_username,
-            goal_domain=gap_vector.goal_domain,
-            goal_display_name=gap_vector.goal_display_name,
-            readiness_score=gap_vector.readiness_score,
-        )
-
-        if not results:
-            self._log.warning(
-                "No results from Qdrant",
-                goal=gap_vector.goal_domain,
-            )
             return RecommendationResult(
                 github_username=gap_vector.github_username,
                 goal_domain=gap_vector.goal_domain,
@@ -178,28 +157,36 @@ class Recommender:
                 readiness_score=gap_vector.readiness_score,
             )
 
-        # Rerank and build recommendations
+        if not results:
+            self._log.warning("No results found", goal=gap_vector.goal_domain)
+            return RecommendationResult(
+                github_username=gap_vector.github_username,
+                goal_domain=gap_vector.goal_domain,
+                goal_display_name=gap_vector.goal_display_name,
+                readiness_score=gap_vector.readiness_score,
+            )
+
+        # Build recommendations
         recommendations = []
+        seen = set()
+
         for hit in results:
             payload = hit.payload or {}
+            full_name = payload.get("full_name", "")
 
-            # Compute final score
+            if full_name in seen or not full_name:
+                continue
+            seen.add(full_name)
+
             semantic_score = hit.score
             friendliness = payload.get("newcomer_friendliness", 0.5)
             final_score = (semantic_score * 0.7) + (friendliness * 0.3)
 
-            # Find which gaps this repo addresses
-            matched_gaps = self._find_matched_gaps(
-                payload, gap_vector
-            )
-
-            # Generate explanation
-            explanation = self._generate_explanation(
-                payload, gap_vector, matched_gaps
-            )
+            matched_gaps = self._find_matched_gaps(payload, gap_vector)
+            explanation = self._generate_explanation(payload, gap_vector, matched_gaps)
 
             recommendations.append(RepoRecommendation(
-                full_name=payload.get("full_name", ""),
+                full_name=full_name,
                 description=payload.get("description", ""),
                 language=payload.get("language", ""),
                 topics=payload.get("topics", []),
@@ -211,16 +198,6 @@ class Recommender:
                 domain=payload.get("domain", ""),
             ))
 
-         # Deduplicate by full_name
-            seen = set()
-            unique_recommendations = []
-            for r in recommendations:
-                if r.full_name not in seen:
-                    seen.add(r.full_name)
-                    unique_recommendations.append(r)
-            recommendations = unique_recommendations   
-
-        # Sort by final score and take top_k
         recommendations.sort(key=lambda x: x.relevance_score, reverse=True)
         recommendations = recommendations[:top_k]
 
@@ -246,7 +223,6 @@ class Recommender:
 
         gap_descriptions = []
         for skill_key in top_gaps:
-            # Convert skill key to readable text
             readable = skill_key.replace(".", " ").replace("-", " ")
             gap_descriptions.append(f"learning {readable}")
 
@@ -257,14 +233,9 @@ class Recommender:
                 f"suitable for developer {gaps_text}, "
                 f"beginner friendly with good documentation"
             )
-        else:
-            return f"open source project for {goal}, beginner friendly"
+        return f"open source project for {goal}, beginner friendly"
 
-    def _find_matched_gaps(
-        self,
-        payload: dict,
-        gap_vector: GapVector,
-    ) -> list[str]:
+    def _find_matched_gaps(self, payload: dict, gap_vector: GapVector) -> list[str]:
         """Find which of the developer's gaps this repo addresses."""
         matched = []
         repo_language = (payload.get("language") or "").lower()
@@ -274,13 +245,11 @@ class Recommender:
         for gap in gap_vector.gaps:
             skill_key = gap.skill_key
 
-            # Language match
             if skill_key.startswith("language."):
                 lang = skill_key.replace("language.", "")
                 if lang in repo_language or lang in " ".join(repo_topics):
                     matched.append(skill_key)
 
-            # Domain match
             elif skill_key.startswith("domain."):
                 domain_part = skill_key.replace("domain.", "")
                 if domain_part in repo_domain or any(
@@ -288,13 +257,11 @@ class Recommender:
                 ):
                     matched.append(skill_key)
 
-            # Tooling match
             elif skill_key.startswith("tooling."):
                 tool = skill_key.replace("tooling.", "")
                 if tool in " ".join(repo_topics):
                     matched.append(skill_key)
 
-        # Always add the goal domain as a matched gap
         if not matched:
             matched = [gap_vector.top_priorities[0]] if gap_vector.top_priorities else []
 
@@ -316,9 +283,7 @@ class Recommender:
                 g.replace(".", " ").replace("-", " ")
                 for g in matched_gaps[:2]
             )
-            explanation = (
-                f"{full_name} addresses your gaps in {gaps_readable}. "
-            )
+            explanation = f"{full_name} addresses your gaps in {gaps_readable}. "
         else:
             explanation = f"{full_name} is a strong match for {goal}. "
 
