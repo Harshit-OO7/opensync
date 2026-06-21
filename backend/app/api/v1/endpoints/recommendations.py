@@ -1,6 +1,9 @@
 """
 Recommendations endpoint.
 
+GET /api/v1/recommendations/debug
+    Debug Qdrant connection and contents.
+
 GET /api/v1/recommendations/{username}?goal={domain}
     Returns gap-aware repository recommendations.
 
@@ -15,6 +18,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.services.ml.gap_modeler import GapModeler
 from app.services.ml.recommender import Recommender
@@ -58,7 +62,60 @@ class IndexResultOut(BaseModel):
     status: str
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+# ── Debug endpoint ────────────────────────────────────────────────────────────
+
+@router.get("/debug")
+async def debug_qdrant():
+    """Debug endpoint to check Qdrant connection and contents."""
+    from qdrant_client import QdrantClient
+
+    try:
+        if settings.QDRANT_API_KEY:
+            client = QdrantClient(
+                url=f"https://{settings.QDRANT_HOST}",
+                api_key=settings.QDRANT_API_KEY,
+            )
+        else:
+            client = QdrantClient(
+                host=settings.QDRANT_HOST,
+                port=settings.QDRANT_PORT,
+            )
+
+        collections = client.get_collections()
+        collection_names = [c.name for c in collections.collections]
+
+        try:
+            points, _ = client.scroll(
+                collection_name="repositories",
+                limit=5,
+                with_payload=True,
+            )
+            return {
+                "status": "ok",
+                "collections": collection_names,
+                "sample_points": [p.payload for p in points],
+                "total_sample": len(points),
+                "qdrant_host": settings.QDRANT_HOST,
+                "has_api_key": bool(settings.QDRANT_API_KEY),
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "collections": collection_names,
+                "error": str(e),
+                "qdrant_host": settings.QDRANT_HOST,
+                "has_api_key": bool(settings.QDRANT_API_KEY),
+            }
+    except Exception as e:
+        return {
+            "status": "connection_error",
+            "error": str(e),
+            "qdrant_host": settings.QDRANT_HOST,
+            "has_api_key": bool(settings.QDRANT_API_KEY),
+        }
+
+
+# ── Main endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/{username}", response_model=RecommendationResultOut)
 async def get_recommendations(
@@ -171,10 +228,6 @@ async def index_repositories(
 ):
     """
     Trigger repository indexing in the background.
-
-    Fetches curated OSS repos, scores newcomer friendliness,
-    embeds them, and stores in PostgreSQL + Qdrant.
-
     This takes 5-15 minutes depending on GitHub rate limits.
     """
     async def run_indexing():
