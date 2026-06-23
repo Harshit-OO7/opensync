@@ -8,14 +8,19 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
+# Build connection args for asyncpg
+connect_args = {}
+if "render.com" in settings.DATABASE_URL or "amazonaws" in settings.DATABASE_URL:
+    connect_args = {
+        "server_settings": {"jit": "off"},
+        "timeout": 60,
+    }
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
     poolclass=NullPool,
-    connect_args={
-        "timeout": 30,
-        "command_timeout": 30,
-    },
+    connect_args=connect_args,
 )
 
 AsyncSessionLocal = sessionmaker(
