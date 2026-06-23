@@ -11,7 +11,11 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
-    poolclass=NullPool,  # Use NullPool for serverless/free tier environments
+    poolclass=NullPool,
+    connect_args={
+        "timeout": 30,
+        "command_timeout": 30,
+    },
 )
 
 AsyncSessionLocal = sessionmaker(
