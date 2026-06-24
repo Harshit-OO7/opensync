@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, execute_query
 from app.services.ml.gap_modeler import GapModeler
 from app.services.ml.recommender import Recommender
 from app.services.ml.repo_indexer import RepoIndexer
@@ -136,16 +136,12 @@ async def get_recommendations(
     log.info("Recommendations requested")
 
     # ── Load developer ────────────────────────────────────────────────────
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            text("""
-                SELECT id, github_username
-                FROM developers
-                WHERE github_username = :username
-            """),
-            {"username": username},
-        )
-        developer = result.fetchone()
+    from app.db.session import execute_query
+    rows = execute_query(
+        "SELECT id, github_username FROM developers WHERE github_username = %(username)s",
+        {"username": username}
+    )
+    developer = rows[0] if rows else None
 
     if not developer:
         raise HTTPException(
@@ -154,19 +150,13 @@ async def get_recommendations(
                    f"Analyze them first via /analyze/{username}",
         )
 
-    developer_id = str(developer.id)
+    developer_id = str(developer["id"])
 
     # ── Load skill nodes ──────────────────────────────────────────────────
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            text("""
-                SELECT skill_key, category, confidence, evidence_count
-                FROM skill_nodes
-                WHERE developer_id = :developer_id
-            """),
-            {"developer_id": developer_id},
-        )
-        rows = result.fetchall()
+    skill_rows_raw = execute_query(
+        "SELECT skill_key, category, confidence, evidence_count FROM skill_nodes WHERE developer_id = %(developer_id)s",
+        {"developer_id": developer_id}
+    )
 
     skill_rows = [
         {

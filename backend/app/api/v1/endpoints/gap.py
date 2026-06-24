@@ -20,7 +20,7 @@ from app.services.ml.target_profiles import list_domains
 logger = structlog.get_logger()
 router = APIRouter()
 
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, execute_query
 
 builder = SkillGraphBuilder()
 modeler = GapModeler()
@@ -82,16 +82,12 @@ async def get_gap(
     log.info("Gap analysis requested")
 
     # ── Load developer from DB ────────────────────────────────────────────
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            text("""
-                SELECT id, github_username
-                FROM developers
-                WHERE github_username = :username
-            """),
-            {"username": username},
-        )
-        developer = result.fetchone()
+    from app.db.session import execute_query
+    rows = execute_query(
+        "SELECT id, github_username FROM developers WHERE github_username = %(username)s",
+        {"username": username}
+    )
+    developer = rows[0] if rows else None
 
     if not developer:
         raise HTTPException(
@@ -100,19 +96,13 @@ async def get_gap(
                    f"Please analyze them first via /analyze/{username}",
         )
 
-    developer_id = str(developer.id)
+    developer_id = str(developer["id"])
 
     # ── Load skill nodes from DB ──────────────────────────────────────────
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            text("""
-                SELECT skill_key, category, confidence, evidence_count
-                FROM skill_nodes
-                WHERE developer_id = :developer_id
-            """),
-            {"developer_id": developer_id},
-        )
-        rows = result.fetchall()
+    skill_rows_raw = execute_query(
+        "SELECT skill_key, category, confidence, evidence_count FROM skill_nodes WHERE developer_id = %(developer_id)s",
+        {"developer_id": developer_id}
+    )
 
     skill_rows = [
         {
