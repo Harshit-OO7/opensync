@@ -105,14 +105,14 @@ async def get_gap(
     )
 
     skill_rows = [
-        {
-            "skill_key": row.skill_key,
-            "category": row.category,
-            "confidence": float(row.confidence),
-            "evidence_count": row.evidence_count,
-        }
-        for row in rows
-    ]
+    {
+        "skill_key": row["skill_key"],
+        "category": row["category"],
+        "confidence": float(row["confidence"]),
+        "evidence_count": row["evidence_count"],
+    }
+    for row in skill_rows_raw
+]
 
     # ── Build skill graph ─────────────────────────────────────────────────
     skill_graph = builder.build(developer_id, username, skill_rows)
